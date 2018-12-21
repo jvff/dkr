@@ -1,4 +1,4 @@
-use super::SingleOrMultipleItemsVisitor;
+use super::single_or_multiple_items_visitor::SingleOrMultipleItemsVisitor;
 use serde::{Deserialize, Deserializer};
 use std::fmt::{self, Display, Formatter};
 
