@@ -51,7 +51,7 @@ impl Display for RunCommands {
             }
         }
 
-        Ok(())
+        writeln!(formatter)
     }
 }
 
