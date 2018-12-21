@@ -14,5 +14,5 @@ fn main() {
     let arguments = Arguments::from_args();
     let dockerfile = Dockerfile::from_file(&arguments.image).unwrap();
 
-    println!("{:#?}", dockerfile);
+    println!("{}", dockerfile);
 }

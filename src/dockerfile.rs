@@ -2,6 +2,7 @@ use failure::Fail;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
+    fmt::{self, Display, Formatter},
     fs::File,
     io::{self, BufReader},
     path::Path,
@@ -13,11 +14,17 @@ pub struct AddFile {
     to: String,
 }
 
+impl Display for AddFile {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        writeln!(formatter, "ADD {} {}", self.from, self.to)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Dockerfile {
     from: String,
-    add: Vec<AddFile>,
     workdir: Option<String>,
+    add: Vec<AddFile>,
     env: Option<HashMap<String, String>>,
     run: Vec<String>,
 }
@@ -41,5 +48,45 @@ impl Dockerfile {
         serde_yaml::from_reader(reader).map_err(|error| {
             FromFileError::DeserializationError(file_path.display().to_string(), error)
         })
+    }
+}
+
+impl Display for Dockerfile {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        writeln!(formatter, "FROM {}", self.from)?;
+
+        if let Some(workdir) = self.workdir.as_ref() {
+            writeln!(formatter, "WORKDIR {}", workdir)?;
+        }
+
+        self.add
+            .iter()
+            .map(|add_file| add_file.fmt(formatter))
+            .find(Result::is_err)
+            .unwrap_or(Ok(()))?;
+
+        if let Some(env) = self.env.as_ref() {
+            if env.len() > 0 {
+                write!(formatter, "ENV")?;
+
+                for (key, value) in env {
+                    write!(formatter, " {}={}", key, value)?;
+                }
+            }
+
+            writeln!(formatter)?;
+        }
+
+        let mut run = self.run.iter();
+
+        if let Some(command) = run.next() {
+            write!(formatter, "RUN {}", command)?;
+
+            for command in run {
+                write!(formatter, " && {}", command)?;
+            }
+        }
+
+        Ok(())
     }
 }
