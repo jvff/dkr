@@ -1,11 +1,12 @@
 mod add_file;
+mod packages;
 mod run_commands;
 
-use self::{add_file::AddFile, run_commands::RunCommands};
+use self::{add_file::AddFile, packages::Packages, run_commands::RunCommands};
 use failure::Fail;
 use serde::{
     de::{SeqAccess, Visitor},
-    Deserialize, Deserializer,
+    Deserialize,
 };
 use std::{
     collections::HashMap,
@@ -14,45 +15,6 @@ use std::{
     io::{self, BufReader},
     path::Path,
 };
-
-#[derive(Debug)]
-pub struct Packages {
-    packages: Vec<String>,
-}
-
-impl<'de> Deserialize<'de> for Packages {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Packages {
-            packages: deserializer.deserialize_any(SingleOrMultipleItemsVisitor)?,
-        })
-    }
-}
-
-impl Display for Packages {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            r#"RUN if [ "$UID" -eq 0 ]; then apt-get update -y; else sudo apt-get update -y; fi"#
-        )?;
-
-        if self.packages.len() > 0 {
-            write!(
-                formatter,
-                r#" && if [ "$UID" -eq 0 ]; then \
-                    apt-get install -y {packages}; \
-                else \
-                    sudo apt-get install -y {packages}; \
-                fi"#,
-                packages = self.packages.join(" "),
-            )?;
-        }
-
-        writeln!(formatter)
-    }
-}
 
 struct SingleOrMultipleItemsVisitor;
 
