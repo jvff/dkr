@@ -152,6 +152,7 @@ pub struct Dockerfile {
     env: Option<HashMap<String, String>>,
     install: Option<Packages>,
     run: RunCommands,
+    cmd: Option<String>,
 }
 
 #[derive(Debug, Fail)]
@@ -211,6 +212,12 @@ impl Display for Dockerfile {
             packages.fmt(formatter)?;
         }
 
-        self.run.fmt(formatter)
+        self.run.fmt(formatter)?;
+
+        if let Some(command) = self.cmd.as_ref() {
+            writeln!(formatter, "CMD {}", command)?;
+        }
+
+        Ok(())
     }
 }
