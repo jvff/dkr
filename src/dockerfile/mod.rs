@@ -1,3 +1,6 @@
+mod add_file;
+
+use self::add_file::AddFile;
 use failure::Fail;
 use serde::{
     de::{SeqAccess, Visitor},
@@ -10,18 +13,6 @@ use std::{
     io::{self, BufReader},
     path::Path,
 };
-
-#[derive(Debug, Deserialize)]
-pub struct AddFile {
-    from: String,
-    to: String,
-}
-
-impl Display for AddFile {
-    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        writeln!(formatter, "ADD {} {}", self.from, self.to)
-    }
-}
 
 #[derive(Debug)]
 pub struct RunCommands {
