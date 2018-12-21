@@ -1,5 +1,8 @@
 use failure::Fail;
-use serde::Deserialize;
+use serde::{
+    de::{SeqAccess, Visitor},
+    Deserialize, Deserializer,
+};
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
@@ -20,13 +23,93 @@ impl Display for AddFile {
     }
 }
 
+#[derive(Debug)]
+pub struct RunCommands {
+    commands: Vec<String>,
+}
+
+impl<'de> Deserialize<'de> for RunCommands {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(RunCommands {
+            commands: deserializer.deserialize_any(SingleOrMultipleItemsVisitor)?,
+        })
+    }
+}
+
+impl Display for RunCommands {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        let mut commands = self.commands.iter();
+
+        if let Some(command) = commands.next() {
+            write!(formatter, "RUN {}", command)?;
+
+            for command in commands {
+                write!(formatter, " && {}", command)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+struct SingleOrMultipleItemsVisitor;
+
+impl<'de> Visitor<'de> for SingleOrMultipleItemsVisitor {
+    type Value = Vec<String>;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "a string or a sequence of strings")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(vec![value.to_owned()])
+    }
+
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(vec![value.to_owned()])
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(vec![value])
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut elements = if let Some(size) = sequence.size_hint() {
+            Vec::with_capacity(size)
+        } else {
+            Vec::new()
+        };
+
+        while let Some(element) = sequence.next_element()? {
+            elements.push(element)
+        }
+
+        Ok(elements)
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Dockerfile {
     from: String,
     workdir: Option<String>,
     add: Vec<AddFile>,
     env: Option<HashMap<String, String>>,
-    run: Vec<String>,
+    run: RunCommands,
 }
 
 #[derive(Debug, Fail)]
@@ -77,16 +160,6 @@ impl Display for Dockerfile {
             writeln!(formatter)?;
         }
 
-        let mut run = self.run.iter();
-
-        if let Some(command) = run.next() {
-            write!(formatter, "RUN {}", command)?;
-
-            for command in run {
-                write!(formatter, " && {}", command)?;
-            }
-        }
-
-        Ok(())
+        self.run.fmt(formatter)
     }
 }
