@@ -143,6 +143,7 @@ impl<'de> Visitor<'de> for SingleOrMultipleItemsVisitor {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Dockerfile {
     from: String,
     workdir: Option<String>,
