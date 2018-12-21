@@ -107,6 +107,7 @@ impl<'de> Visitor<'de> for SingleOrMultipleItemsVisitor {
 pub struct Dockerfile {
     from: String,
     workdir: Option<String>,
+    user: Option<String>,
     add: Option<Vec<AddFile>>,
     env: Option<HashMap<String, String>>,
     run: RunCommands,
@@ -140,6 +141,10 @@ impl Display for Dockerfile {
 
         if let Some(workdir) = self.workdir.as_ref() {
             writeln!(formatter, "WORKDIR {}", workdir)?;
+        }
+
+        if let Some(user) = self.user.as_ref() {
+            writeln!(formatter, "USER {}", user)?;
         }
 
         if let Some(add) = self.add.as_ref() {
