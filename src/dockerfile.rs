@@ -175,6 +175,10 @@ impl Dockerfile {
             FromFileError::DeserializationError(file_path.display().to_string(), error)
         })
     }
+
+    pub fn from(&self) -> &str {
+        self.from.as_str()
+    }
 }
 
 impl Display for Dockerfile {
