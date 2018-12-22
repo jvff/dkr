@@ -37,6 +37,6 @@ fn main() {
     }
 
     for docker_image in docker_images.into_iter().rev() {
-        println!("{:#?}", docker_image);
+        docker_image.build().unwrap();
     }
 }

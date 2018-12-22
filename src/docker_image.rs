@@ -1,6 +1,11 @@
 use super::dockerfile::{self, Dockerfile};
+use duct::cmd;
 use failure::Fail;
-use std::path::{Path, PathBuf};
+use std::{
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
+use tempfile::NamedTempFile;
 
 #[derive(Debug)]
 pub struct DockerImage {
@@ -16,6 +21,21 @@ pub enum NewDockerImageError {
 
     #[fail(display = "Failed to load Dockerfile for image: {}", _0)]
     DockerfileError(String, #[cause] dockerfile::FromFileError),
+}
+
+#[derive(Debug, Fail)]
+pub enum BuildDockerImageError {
+    #[fail(
+        display = "Failed to create file to write Dockerfile for image: {}",
+        _0
+    )]
+    CreateDockerfileError(String, #[cause] io::Error),
+
+    #[fail(display = "Failed to write Dockerfile contents for image: {}", _0)]
+    WriteDockerfileError(String, #[cause] io::Error),
+
+    #[fail(display = "Failed to run docker command to build image: {}", _0)]
+    DockerCommandError(String, #[cause] io::Error),
 }
 
 impl DockerImage {
@@ -57,5 +77,28 @@ impl DockerImage {
 
     pub fn source_image(&self) -> &str {
         self.dockerfile.from()
+    }
+
+    pub fn build(&self) -> Result<(), BuildDockerImageError> {
+        let dockerfile = NamedTempFile::new().map_err(|error| {
+            BuildDockerImageError::CreateDockerfileError(self.tag.clone(), error)
+        })?;
+
+        write!(dockerfile.as_file(), "{}", self.dockerfile).map_err(|error| {
+            BuildDockerImageError::WriteDockerfileError(self.tag.clone(), error)
+        })?;
+
+        cmd!(
+            "docker",
+            "build",
+            "-t",
+            &self.tag,
+            "-f",
+            dockerfile.path(),
+            &self.source_directory
+        )
+        .run()
+        .map(|_| ())
+        .map_err(|error| BuildDockerImageError::DockerCommandError(self.tag.clone(), error))
     }
 }
