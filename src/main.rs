@@ -1,6 +1,7 @@
+mod docker_image;
 mod dockerfile;
 
-use self::dockerfile::Dockerfile;
+use self::docker_image::DockerImage;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -19,34 +20,23 @@ pub struct Arguments {
 
 fn main() {
     let arguments = Arguments::from_args();
-    let mut dockerfiles = Vec::new();
-    let base_dir = arguments.images_dir.join("janitovff");
+    let mut docker_images = Vec::new();
 
-    let image_name = if arguments.image_tag.starts_with("janitovff/") {
-        let (_, image_name) = arguments.image_tag.split_at(10);
-        image_name
-    } else {
-        &arguments.image_tag
-    };
+    let docker_image = DockerImage::new(&arguments.images_dir, &arguments.image_tag).unwrap();
 
-    let image_dir = base_dir.join(image_name);
-    let dockerfile = Dockerfile::from_file(image_dir.join("dockerfile.yml")).unwrap();
-    let mut template_image = dockerfile.from().to_owned();
+    let mut source_image_tag = docker_image.source_image().to_owned();
 
-    dockerfiles.push(dockerfile);
+    docker_images.push(docker_image);
 
-    while template_image.starts_with("janitovff/") {
-        let template_image_name = template_image.split_off(10);
-        let dockerfile_path = base_dir.join(template_image_name).join("dockerfile.yml");
-        println!("Deserializing {}", dockerfile_path.display());
-        let dockerfile = Dockerfile::from_file(dockerfile_path).unwrap();
+    while source_image_tag.starts_with("janitovff/") {
+        let docker_image = DockerImage::new(&arguments.images_dir, &source_image_tag).unwrap();
 
-        template_image = dockerfile.from().to_owned();
+        source_image_tag = docker_image.source_image().to_owned();
 
-        dockerfiles.push(dockerfile);
+        docker_images.push(docker_image);
     }
 
-    for dockerfile in dockerfiles.into_iter().rev() {
-        println!("{}", dockerfile);
+    for docker_image in docker_images.into_iter().rev() {
+        println!("{:#?}", docker_image);
     }
 }
