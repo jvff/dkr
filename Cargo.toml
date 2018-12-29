@@ -1,5 +1,5 @@
 [package]
-name = "docker-yaml-build"
+name = "dkr"
 version = "0.1.0"
 authors = ["Janito Vaqueiro Ferreira Filho <janito@mullvad.net>"]
 edition = "2018"
