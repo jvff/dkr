@@ -22,13 +22,13 @@ impl Display for Packages {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         write!(
             formatter,
-            r#"RUN if [ "$UID" -eq 0 ]; then apt-get update -y; else sudo apt-get update -y; fi"#
+            r#"RUN if [ "$(id -u)" -eq 0 ]; then apt-get update -y; else sudo apt-get update -y; fi"#
         )?;
 
         if self.packages.len() > 0 {
             write!(
                 formatter,
-                r#" && if [ "$UID" -eq 0 ]; then \
+                r#" && if [ "$(id -u)" -eq 0 ]; then \
                     apt-get install -y {packages}; \
                 else \
                     sudo apt-get install -y {packages}; \
