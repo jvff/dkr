@@ -1,29 +1,16 @@
+mod arguments;
 mod config;
 mod docker_image;
 mod dockerfile;
 
-use self::{config::Config, docker_image::DockerImage};
+use self::{arguments::Arguments, config::Config, docker_image::DockerImage};
 use app_dirs::AppInfo;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "dkr",
     author: "dkr",
 };
-
-#[derive(StructOpt)]
-pub struct Arguments {
-    #[structopt(
-        name = "images directory",
-        short = "d",
-        long = "base-dir",
-        default_value = "/project",
-        parse(from_os_str)
-    )]
-    images_dir: PathBuf,
-    image_tag: String,
-}
 
 fn main() {
     let arguments = Arguments::from_args();
