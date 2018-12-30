@@ -39,6 +39,7 @@ pub enum FromFileError {
 impl Dockerfile {
     pub fn from_file(file_path: impl AsRef<Path>) -> Result<Self, FromFileError> {
         let file_path = file_path.as_ref();
+        println!("Path: {}", file_path.display());
         let file = File::open(&file_path)
             .map_err(|error| FromFileError::IoError(file_path.display().to_string(), error))?;
         let reader = BufReader::new(file);
