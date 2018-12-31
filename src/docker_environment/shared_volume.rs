@@ -7,7 +7,11 @@ pub struct SharedVolume {
 }
 
 impl SharedVolume {
-    pub fn volume_argument(&self) -> String {
-        format!("{}:{}", self.name, self.at)
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn at(&self) -> &str {
+        &self.at
     }
 }

@@ -1,9 +1,8 @@
 mod shared_volume;
 
 use self::shared_volume::SharedVolume;
-use super::APP_INFO;
+use super::{docker, APP_INFO};
 use app_dirs::{self, AppDataType, AppDirsError};
-use duct::cmd;
 use failure::Fail;
 use serde::Deserialize;
 use std::{
@@ -56,49 +55,34 @@ impl DockerEnvironment {
     }
 
     pub fn initialize(&self, project: String) -> Result<(), InitializeEnvironmentError> {
-        let mut arguments = vec!["run".to_owned(), "--rm".to_owned()];
+        let mut command = docker::run(&self.image);
 
-        arguments.push("-v".to_owned());
-        arguments.push(format!("{}:/project", project));
-
-        arguments.push("-e".to_owned());
-        arguments.push(format!("NAME={}", project));
+        command
+            .temporary()
+            .volume(&project, "/project")
+            .env("NAME", project);
 
         for shared_volume in &self.shared_volumes {
-            arguments.push("-v".to_owned());
-            arguments.push(shared_volume.volume_argument());
+            command.volume(shared_volume.name(), shared_volume.at());
         }
 
-        arguments.push(self.image.clone());
-
-        arguments.push("sh".to_owned());
-        arguments.push("-c".to_owned());
-        arguments.push(self.new.clone());
-
-        cmd("docker", &arguments)
-            .run()
-            .map_err(InitializeEnvironmentError)?;
-
-        Ok(())
+        command
+            .run_shell_command(&self.new)
+            .map_err(InitializeEnvironmentError)
     }
 
     pub fn run(&self, project: String) -> Result<(), RunEnvironmentError> {
-        let mut arguments = vec!["run".to_owned(), "--rm".to_owned(), "-it".to_owned()];
+        let mut command = docker::run(&self.image);
 
-        arguments.push("-v".to_owned());
-        arguments.push(format!("{}:/project", project));
+        command
+            .temporary()
+            .interactive()
+            .volume(project, "/project");
 
         for shared_volume in &self.shared_volumes {
-            arguments.push("-v".to_owned());
-            arguments.push(shared_volume.volume_argument());
+            command.volume(shared_volume.name(), shared_volume.at());
         }
 
-        arguments.push(self.image.clone());
-
-        cmd("docker", &arguments)
-            .run()
-            .map_err(RunEnvironmentError)?;
-
-        Ok(())
+        command.run().map_err(RunEnvironmentError)
     }
 }
