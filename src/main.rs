@@ -1,6 +1,7 @@
 mod arguments;
 mod commands;
 mod config;
+mod docker_environment;
 mod docker_image;
 mod dockerfile;
 
