@@ -35,6 +35,10 @@ pub enum LoadEnvironmentError {
 #[fail(display = "Failed to run initialization command")]
 pub struct InitializeEnvironmentError(#[cause] io::Error);
 
+#[derive(Debug, Fail)]
+#[fail(display = "Failed to run environment")]
+pub struct RunEnvironmentError(#[cause] io::Error);
+
 impl DockerEnvironment {
     pub fn load(name: &str) -> Result<Self, LoadEnvironmentError> {
         let path = app_dirs::get_app_root(AppDataType::UserConfig, &APP_INFO)
@@ -74,6 +78,26 @@ impl DockerEnvironment {
         cmd("docker", &arguments)
             .run()
             .map_err(InitializeEnvironmentError)?;
+
+        Ok(())
+    }
+
+    pub fn run(&self, project: String) -> Result<(), RunEnvironmentError> {
+        let mut arguments = vec!["run".to_owned(), "--rm".to_owned(), "-it".to_owned()];
+
+        arguments.push("-v".to_owned());
+        arguments.push(format!("{}:/project", project));
+
+        for shared_volume in &self.shared_volumes {
+            arguments.push("-v".to_owned());
+            arguments.push(shared_volume.volume_argument());
+        }
+
+        arguments.push(self.image.clone());
+
+        cmd("docker", &arguments)
+            .run()
+            .map_err(RunEnvironmentError)?;
 
         Ok(())
     }
