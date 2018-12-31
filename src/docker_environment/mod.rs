@@ -1,3 +1,6 @@
+mod shared_volume;
+
+use self::shared_volume::SharedVolume;
 use super::APP_INFO;
 use app_dirs::{self, AppDataType, AppDirsError};
 use duct::cmd;
@@ -13,6 +16,7 @@ use std::{
 pub struct DockerEnvironment {
     image: String,
     new: String,
+    shared_volumes: Vec<SharedVolume>,
 }
 
 #[derive(Debug, Fail)]
@@ -48,21 +52,28 @@ impl DockerEnvironment {
     }
 
     pub fn initialize(&self, project: String) -> Result<(), InitializeEnvironmentError> {
-        cmd!(
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            format!("{}:/project", project),
-            "-e",
-            format!("NAME={}", project),
-            &self.image,
-            "sh",
-            "-c",
-            &self.new
-        )
-        .run()
-        .map_err(InitializeEnvironmentError)?;
+        let mut arguments = vec!["run".to_owned(), "--rm".to_owned()];
+
+        arguments.push("-v".to_owned());
+        arguments.push(format!("{}:/project", project));
+
+        arguments.push("-e".to_owned());
+        arguments.push(format!("NAME={}", project));
+
+        for shared_volume in &self.shared_volumes {
+            arguments.push("-v".to_owned());
+            arguments.push(shared_volume.volume_argument());
+        }
+
+        arguments.push(self.image.clone());
+
+        arguments.push("sh".to_owned());
+        arguments.push("-c".to_owned());
+        arguments.push(self.new.clone());
+
+        cmd("docker", &arguments)
+            .run()
+            .map_err(InitializeEnvironmentError)?;
 
         Ok(())
     }
