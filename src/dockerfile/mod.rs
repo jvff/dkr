@@ -1,4 +1,5 @@
 mod add_file;
+mod copy_file;
 mod packages;
 mod run_commands;
 mod single_or_multiple_items_visitor;

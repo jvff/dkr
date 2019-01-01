@@ -1,4 +1,6 @@
-use super::{add_file::AddFile, packages::Packages, run_commands::RunCommands};
+use super::{
+    add_file::AddFile, copy_file::CopyFile, packages::Packages, run_commands::RunCommands,
+};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -12,6 +14,7 @@ pub struct Stage {
     workdir: Option<String>,
     user: Option<String>,
     add: Option<Vec<AddFile>>,
+    copy: Option<Vec<CopyFile>>,
     env: Option<HashMap<String, String>>,
     install: Option<Packages>,
     run: RunCommands,
@@ -39,6 +42,13 @@ impl Display for Stage {
         if let Some(add) = self.add.as_ref() {
             add.iter()
                 .map(|add_file| add_file.fmt(formatter))
+                .find(Result::is_err)
+                .unwrap_or(Ok(()))?;
+        }
+
+        if let Some(copy) = self.copy.as_ref() {
+            copy.iter()
+                .map(|copy_file| copy_file.fmt(formatter))
                 .find(Result::is_err)
                 .unwrap_or(Ok(()))?;
         }
