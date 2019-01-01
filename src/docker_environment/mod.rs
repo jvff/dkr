@@ -15,6 +15,7 @@ use std::{
 pub struct DockerEnvironment {
     image: String,
     new: String,
+    project_path: Option<String>,
     shared_volumes: Vec<SharedVolume>,
 }
 
@@ -59,7 +60,7 @@ impl DockerEnvironment {
 
         command
             .temporary()
-            .volume(&project, "/project")
+            .volume(&project, self.project_path())
             .env("NAME", project);
 
         for shared_volume in &self.shared_volumes {
@@ -77,12 +78,19 @@ impl DockerEnvironment {
         command
             .temporary()
             .interactive()
-            .volume(project, "/project");
+            .volume(project, self.project_path());
 
         for shared_volume in &self.shared_volumes {
             command.volume(shared_volume.name(), shared_volume.at());
         }
 
         command.run().map_err(RunEnvironmentError)
+    }
+
+    fn project_path(&self) -> &str {
+        match self.project_path.as_ref() {
+            Some(path) => path,
+            None => "/project",
+        }
     }
 }
