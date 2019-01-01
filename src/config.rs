@@ -7,6 +7,7 @@ use std::{fs::File, io::BufReader};
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub tag_namespace: Option<String>,
+    pub images_dir: Option<String>,
 }
 
 impl Config {

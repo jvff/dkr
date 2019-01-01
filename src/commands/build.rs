@@ -13,10 +13,9 @@ pub struct Build {
         name = "images directory",
         short = "d",
         long = "base-dir",
-        default_value = "/project",
         parse(from_os_str)
     )]
-    images_dir: PathBuf,
+    images_dir: Option<PathBuf>,
     image_tag: String,
 }
 
@@ -39,6 +38,7 @@ impl Build {
     pub fn run(self, config: Config) -> Result<(), RunBuildError> {
         let mut tag_queue = VecDeque::new();
         let mut build_queue = Vec::new();
+        let images_dir = Self::images_dir(self.images_dir, &config);
 
         let tag_prefix = match config.tag_namespace {
             Some(namespace) => format!("{}/", namespace),
@@ -52,7 +52,7 @@ impl Build {
         };
         let tag_namespace = &tag_prefix[0..(tag_prefix.len() - 1)];
 
-        let docker_image = DockerImage::new(&self.images_dir, &self.image_tag, tag_namespace)
+        let docker_image = DockerImage::new(&images_dir, &self.image_tag, tag_namespace)
             .map_err(RunBuildError::NewDockerImageError)?;
 
         tag_queue.extend(docker_image.source_images().map(|tag| tag.to_owned()));
@@ -60,9 +60,8 @@ impl Build {
 
         while let Some(source_image_tag) = tag_queue.pop_front() {
             if source_image_tag.starts_with(&tag_prefix) {
-                let docker_image =
-                    DockerImage::new(&self.images_dir, &source_image_tag, tag_namespace)
-                        .map_err(RunBuildError::NewDockerImageError)?;
+                let docker_image = DockerImage::new(&images_dir, &source_image_tag, tag_namespace)
+                    .map_err(RunBuildError::NewDockerImageError)?;
 
                 tag_queue.extend(docker_image.source_images().map(|tag| tag.to_owned()));
                 build_queue.push(docker_image);
@@ -76,5 +75,15 @@ impl Build {
         }
 
         Ok(())
+    }
+
+    fn images_dir(images_dir: Option<PathBuf>, config: &Config) -> PathBuf {
+        match images_dir {
+            Some(path) => path,
+            None => PathBuf::from(match &config.images_dir {
+                Some(path) => path.as_str(),
+                None => "/project",
+            }),
+        }
     }
 }
