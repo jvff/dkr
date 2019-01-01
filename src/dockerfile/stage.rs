@@ -17,7 +17,7 @@ pub struct Stage {
     copy: Option<Vec<CopyFile>>,
     env: Option<HashMap<String, String>>,
     install: Option<Packages>,
-    run: RunCommands,
+    run: Option<RunCommands>,
     cmd: Option<String>,
 }
 
@@ -69,7 +69,9 @@ impl Display for Stage {
             packages.fmt(formatter)?;
         }
 
-        self.run.fmt(formatter)?;
+        if let Some(run_commands) = self.run.as_ref() {
+            run_commands.fmt(formatter)?;
+        }
 
         if let Some(command) = self.cmd.as_ref() {
             writeln!(formatter, "CMD {}", command)?;
