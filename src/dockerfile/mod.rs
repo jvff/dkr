@@ -2,29 +2,24 @@ mod add_file;
 mod packages;
 mod run_commands;
 mod single_or_multiple_items_visitor;
+mod stage;
 
-use self::{add_file::AddFile, packages::Packages, run_commands::RunCommands};
+use self::stage::Stage;
 use failure::Fail;
 use serde::Deserialize;
+use serde_yaml::{Mapping, Number, Sequence, Value};
 use std::{
-    collections::HashMap,
     fmt::{self, Display, Formatter},
-    fs::File,
-    io::{self, BufReader},
+    fs, io,
+    num::ParseFloatError,
     path::Path,
 };
+use yaml_rust::{Yaml, YamlLoader};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Dockerfile {
-    from: String,
-    workdir: Option<String>,
-    user: Option<String>,
-    add: Option<Vec<AddFile>>,
-    env: Option<HashMap<String, String>>,
-    install: Option<Packages>,
-    run: RunCommands,
-    cmd: Option<String>,
+    stages: Vec<Stage>,
 }
 
 #[derive(Debug, Fail)]
@@ -32,68 +27,100 @@ pub enum FromFileError {
     #[fail(display = "IO error reading YAML dockerfile: {}", _0)]
     IoError(String, #[cause] io::Error),
 
+    #[fail(display = "Failed to parse YAML dockerfile: {}", _0)]
+    ParseYamlError(String, #[cause] ParseYamlError),
+
     #[fail(display = "Failed to deserialize YAML dockerfile: {}", _0)]
     DeserializationError(String, #[cause] serde_yaml::Error),
+}
+
+#[derive(Debug, Fail)]
+pub enum ParseYamlError {
+    #[fail(display = "Failed to parse YAML file")]
+    YamlRustError(#[cause] yaml_rust::ScanError),
+
+    #[fail(display = "Failed to parse YAML element")]
+    ParseRealError(#[cause] ParseFloatError),
+
+    #[fail(display = "Alias YAML elements are not supported")]
+    AliasNotSupported,
+
+    #[fail(display = "Attempt to access inexistent index or invalid type conversion")]
+    BadYamlValue,
 }
 
 impl Dockerfile {
     pub fn from_file(file_path: impl AsRef<Path>) -> Result<Self, FromFileError> {
         let file_path = file_path.as_ref();
-        let file = File::open(&file_path)
+        let yaml_dockerfile = fs::read_to_string(&file_path)
             .map_err(|error| FromFileError::IoError(file_path.display().to_string(), error))?;
-        let reader = BufReader::new(file);
+        let dockerfile_stages = YamlLoader::load_from_str(&yaml_dockerfile).map_err(|error| {
+            FromFileError::ParseYamlError(
+                file_path.display().to_string(),
+                ParseYamlError::YamlRustError(error),
+            )
+        })?;
 
-        serde_yaml::from_reader(reader).map_err(|error| {
-            FromFileError::DeserializationError(file_path.display().to_string(), error)
-        })
+        let mut stages = Vec::with_capacity(dockerfile_stages.len());
+
+        for dockerfile_stage in dockerfile_stages {
+            let stage_value = convert_yaml_value(dockerfile_stage).map_err(|error| {
+                FromFileError::ParseYamlError(file_path.display().to_string(), error)
+            })?;
+            let stage = serde_yaml::from_value(stage_value).map_err(|error| {
+                FromFileError::DeserializationError(file_path.display().to_string(), error)
+            })?;
+
+            stages.push(stage);
+        }
+
+        Ok(Dockerfile { stages })
     }
 
-    pub fn from(&self) -> &str {
-        self.from.as_str()
+    pub fn from(&self) -> impl Iterator<Item = &str> {
+        self.stages.iter().map(Stage::from)
     }
 }
 
 impl Display for Dockerfile {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        writeln!(formatter, "FROM {}", self.from)?;
-
-        if let Some(workdir) = self.workdir.as_ref() {
-            writeln!(formatter, "WORKDIR {}", workdir)?;
-        }
-
-        if let Some(user) = self.user.as_ref() {
-            writeln!(formatter, "USER {}", user)?;
-        }
-
-        if let Some(add) = self.add.as_ref() {
-            add.iter()
-                .map(|add_file| add_file.fmt(formatter))
-                .find(Result::is_err)
-                .unwrap_or(Ok(()))?;
-        }
-
-        if let Some(env) = self.env.as_ref() {
-            if env.len() > 0 {
-                write!(formatter, "ENV")?;
-
-                for (key, value) in env {
-                    write!(formatter, " {}={}", key, value)?;
-                }
-            }
-
+        for stage in &self.stages {
+            stage.fmt(formatter)?;
             writeln!(formatter)?;
         }
 
-        if let Some(packages) = self.install.as_ref() {
-            packages.fmt(formatter)?;
-        }
-
-        self.run.fmt(formatter)?;
-
-        if let Some(command) = self.cmd.as_ref() {
-            writeln!(formatter, "CMD {}", command)?;
-        }
-
         Ok(())
+    }
+}
+
+fn convert_yaml_value(value: Yaml) -> Result<Value, ParseYamlError> {
+    match value {
+        Yaml::Real(string) => {
+            let real: f64 = string.parse().map_err(ParseYamlError::ParseRealError)?;
+            Ok(Value::Number(Number::from(real)))
+        }
+        Yaml::Integer(integer) => Ok(Value::Number(Number::from(integer))),
+        Yaml::String(string) => Ok(Value::String(string)),
+        Yaml::Boolean(boolean) => Ok(Value::Bool(boolean)),
+        Yaml::Array(array) => {
+            let elements: Result<Sequence, ParseYamlError> =
+                array.into_iter().map(convert_yaml_value).collect();
+
+            Ok(Value::Sequence(elements?))
+        }
+        Yaml::Hash(map) => {
+            let elements: Result<Mapping, ParseYamlError> = map
+                .into_iter()
+                .map(|(key, value)| {
+                    convert_yaml_value(key)
+                        .and_then(|key| convert_yaml_value(value).map(|value| (key, value)))
+                })
+                .collect();
+
+            Ok(Value::Mapping(elements?))
+        }
+        Yaml::Alias(_) => Err(ParseYamlError::AliasNotSupported),
+        Yaml::Null => Ok(Value::Null),
+        Yaml::BadValue => Err(ParseYamlError::BadYamlValue),
     }
 }

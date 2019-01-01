@@ -81,7 +81,7 @@ impl DockerImage {
         }
     }
 
-    pub fn source_image(&self) -> &str {
+    pub fn source_images(&self) -> impl Iterator<Item = &str> {
         self.dockerfile.from()
     }
 

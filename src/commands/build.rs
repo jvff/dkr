@@ -4,7 +4,7 @@ use super::super::{
     docker_image::{BuildDockerImageError, NewDockerImageError},
 };
 use failure::Fail;
-use std::path::PathBuf;
+use std::{collections::VecDeque, path::PathBuf};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -37,7 +37,8 @@ pub enum RunBuildError {
 
 impl Build {
     pub fn run(self, config: Config) -> Result<(), RunBuildError> {
-        let mut docker_images = Vec::new();
+        let mut tag_queue = VecDeque::new();
+        let mut build_queue = Vec::new();
 
         let tag_prefix = match config.tag_namespace {
             Some(namespace) => format!("{}/", namespace),
@@ -49,25 +50,26 @@ impl Build {
                 }
             }
         };
-
         let tag_namespace = &tag_prefix[0..(tag_prefix.len() - 1)];
 
         let docker_image = DockerImage::new(&self.images_dir, &self.image_tag, tag_namespace)
             .map_err(RunBuildError::NewDockerImageError)?;
-        let mut source_image_tag = docker_image.source_image().to_owned();
 
-        docker_images.push(docker_image);
+        tag_queue.extend(docker_image.source_images().map(|tag| tag.to_owned()));
+        build_queue.push(docker_image);
 
-        while source_image_tag.starts_with(&tag_prefix) {
-            let docker_image = DockerImage::new(&self.images_dir, &source_image_tag, tag_namespace)
-                .map_err(RunBuildError::NewDockerImageError)?;
+        while let Some(source_image_tag) = tag_queue.pop_front() {
+            if source_image_tag.starts_with(&tag_prefix) {
+                let docker_image =
+                    DockerImage::new(&self.images_dir, &source_image_tag, tag_namespace)
+                        .map_err(RunBuildError::NewDockerImageError)?;
 
-            source_image_tag = docker_image.source_image().to_owned();
-
-            docker_images.push(docker_image);
+                tag_queue.extend(docker_image.source_images().map(|tag| tag.to_owned()));
+                build_queue.push(docker_image);
+            }
         }
 
-        for docker_image in docker_images.into_iter().rev() {
+        for docker_image in build_queue.into_iter().rev() {
             docker_image
                 .build()
                 .map_err(RunBuildError::BuildImageError)?;
