@@ -3,7 +3,10 @@ use super::super::docker_environment::{
 };
 use duct::cmd;
 use failure::Fail;
-use std::io;
+use std::{
+    fmt::{self, Display, Formatter},
+    io,
+};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -38,5 +41,11 @@ impl New {
             .map_err(RunNewError::InitializeEnvironmentError)?;
 
         Ok(())
+    }
+}
+
+impl Display for New {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "new {} {}", self.environment, self.name)
     }
 }

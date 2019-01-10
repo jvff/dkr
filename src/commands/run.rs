@@ -2,6 +2,7 @@ use super::super::docker_environment::{
     DockerEnvironment, LoadEnvironmentError, RunEnvironmentError,
 };
 use failure::Fail;
+use std::fmt::{self, Display, Formatter};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -25,5 +26,11 @@ impl Run {
             .map_err(RunRunError::LoadEnvironmentError)?;
 
         environment.run(self.project).map_err(RunRunError::RunError)
+    }
+}
+
+impl Display for Run {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "run {} {}", self.environment, self.project)
     }
 }

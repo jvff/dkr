@@ -11,6 +11,7 @@ pub use self::{
 };
 use super::config::Config;
 use failure::Fail;
+use std::fmt::{self, Display, Formatter};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -50,6 +51,17 @@ impl Commands {
             Commands::Clean(clean) => clean.run().map_err(RunCommandError::Clean),
             Commands::New(new) => new.run().map_err(RunCommandError::New),
             Commands::Run(run) => run.run().map_err(RunCommandError::Run),
+        }
+    }
+}
+
+impl Display for Commands {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        match self {
+            Commands::Build(build) => build.fmt(formatter),
+            Commands::Clean(clean) => clean.fmt(formatter),
+            Commands::New(new) => new.fmt(formatter),
+            Commands::Run(run) => run.fmt(formatter),
         }
     }
 }

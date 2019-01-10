@@ -4,7 +4,11 @@ use super::super::{
     docker_image::{BuildDockerImageError, NewDockerImageError},
 };
 use failure::Fail;
-use std::{collections::VecDeque, path::PathBuf};
+use std::{
+    collections::VecDeque,
+    fmt::{self, Display, Formatter},
+    path::PathBuf,
+};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -85,5 +89,17 @@ impl Build {
                 None => "/project",
             }),
         }
+    }
+}
+
+impl Display for Build {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "build ")?;
+
+        if let Some(images_dir) = &self.images_dir {
+            write!(formatter, "-d {} ", images_dir.display())?;
+        }
+
+        write!(formatter, "{}", self.image_tag)
     }
 }
