@@ -18,6 +18,7 @@ pub struct Stage {
     env: Option<HashMap<String, String>>,
     install: Option<Packages>,
     run: Option<RunCommands>,
+    entrypoint: Option<String>,
     cmd: Option<String>,
 }
 
@@ -71,6 +72,10 @@ impl Display for Stage {
 
         if let Some(run_commands) = self.run.as_ref() {
             run_commands.fmt(formatter)?;
+        }
+
+        if let Some(entrypoint) = self.entrypoint.as_ref() {
+            writeln!(formatter, "ENTRYPOINT {}", entrypoint)?;
         }
 
         if let Some(command) = self.cmd.as_ref() {
