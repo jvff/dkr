@@ -34,6 +34,13 @@ impl<'a> DockerRun<'a> {
         self
     }
 
+    pub fn read_only_volume(&mut self, source: impl AsRef<str>, target: impl AsRef<str>) -> &mut Self {
+        self.command
+            .append("-v")
+            .append(format!("{}:{}:ro", source.as_ref(), target.as_ref()));
+        self
+    }
+
     pub fn env(&mut self, variable: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
         self.command
             .append("-e")
