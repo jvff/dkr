@@ -25,7 +25,7 @@ impl<'a> DockerCommand<'a> {
         cmd(
             "docker",
             self.arguments.iter().map(|argument| {
-                let argument_str: &'a str = argument.borrow();
+                let argument_str: &str = argument.borrow();
                 OsStr::new(argument_str)
             }),
         )
